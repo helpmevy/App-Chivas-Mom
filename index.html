@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b7f8c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mẹ Chivas">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Mẹ Chivas - Hóa đơn</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><h1 id="title"></h1></header>
+<main id="view"></main>
+<button id="selbar" hidden></button>
+<nav class="tabs">
+  <button data-t="products"><span>🧸</span>Sản phẩm</button>
+  <button data-t="cart"><span>🧾</span>Hóa đơn<i id="cartBadge"></i></button>
+  <button data-t="history"><span>🕘</span>Lịch sử</button>
+  <button data-t="settings"><span>⚙️</span>Cài đặt</button>
+</nav>
+<div id="toast"></div>
+<div id="modalRoot"></div>
+<script src="lib/html2canvas.min.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
