@@ -1,7 +1,7 @@
 /* Service worker: lưu sẵn file để app chạy offline.
    Có mạng: luôn lấy bản MỚI NHẤT từ GitHub (nên cập nhật code là máy tự nhận).
-   Mất mạng: dùng bản đã lưu. Khi sửa code, đổi số phiên bản CACHE (v6 -> v7). */
-const CACHE = 'mechivas-v6';
+   Mất mạng: dùng bản đã lưu. Khi sửa code, đổi số phiên bản CACHE (v7 -> v8). */
+const CACHE = 'mechivas-v7';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'manifest.json', 'qr.png',
   'lib/html2canvas.min.js', 'lib/jspdf.umd.min.js', 'lib/exceljs.min.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];

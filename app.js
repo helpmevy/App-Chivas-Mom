@@ -1,5 +1,6 @@
 'use strict';
-const APP_VERSION = 'v6'; // hiện ở Cài đặt để biết máy đang chạy bản nào
+const APP_VERSION = 'v7'; // <<< MỖI LẦN SỬA CODE: đổi số này (v8, v9...) rồi up GitHub. Hiện ở Cài đặt
+const APP_BUILD = '27/11/2026'; // ngày cập nhật (sửa tay cho dễ nhớ)
 /* =====================================================
    Mẹ Chivas - Quản lý sản phẩm & hóa đơn (PWA)
    Cấu trúc file: 1) Tiện ích  2) Cơ sở dữ liệu  3) Màn hình
@@ -99,7 +100,7 @@ const sel = new Map(); // id sản phẩm -> { qty, price }
 function setTab(t) { tab = t; render(); }
 function render() {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
-  ({ products: vProducts, cart: vCart, history: vHistory, settings: vSettings })[tab]();
+  ({ products: vProducts, cart: vCart, history: vHistory, stats: vStats, settings: vSettings })[tab]();
   updateBar();
 }
 function updateBar() {
@@ -110,6 +111,7 @@ function updateBar() {
 }
 
 /* --- Danh sách sản phẩm --- */
+const hasCost = p => p.cost !== undefined && p.cost !== null && p.cost !== '' && !isNaN(p.cost);
 const filtered = () => { const k = norm(q.trim()); return k ? products.filter(p => norm(p.name).includes(k)) : products; };
 function vProducts() {
   $('#title').textContent = 'Sản phẩm';
@@ -134,7 +136,7 @@ function drawList() {
   $('#list').innerHTML = rows.map(p => `
     <div class="row${sel.has(p.id) ? ' on' : ''}" data-id="${p.id}">
       <input type="checkbox" ${sel.has(p.id) ? 'checked' : ''}>${thumb(p)}
-      <div class="nm">${esc(p.name)}<small>${fmt(p.price)} đ</small></div>
+      <div class="nm">${esc(p.name)}<small>${fmt(p.price)} đ${hasCost(p) ? ` <span class="mu">· nhập ${fmt(p.cost)} · lãi ${fmt(p.price - p.cost)}</span>` : ''}</small></div>
       <button class="ic" data-edit="${p.id}">✏️</button>
     </div>`).join('') || '<p class="empty">Không tìm thấy sản phẩm</p>';
   updateBar();
@@ -159,18 +161,30 @@ function editProduct(id) {
         <button class="btn alt" id="pick">Chọn ảnh</button><button class="btn danger" id="noimg">Xóa ảnh</button></div>
       <input type="file" id="file" accept="image/*" hidden>
       <label class="f">Tên sản phẩm</label><input id="pn" value="${esc(p.name)}">
-      <label class="f">Giá (đ)</label><input id="pp" inputmode="numeric" value="${p.price}">
+      <label class="f">Giá nhập (đ)</label><input id="pc" inputmode="numeric" value="${hasCost(p) ? p.cost : ''}">
+      <label class="f">Giá xuất (đ) — giá in trên hóa đơn</label><input id="pp" inputmode="numeric" value="${p.price}">
+      <div class="profit" id="pl"></div>
     </div>
     <div class="mf">${old ? '<button class="btn danger" id="del">Xóa</button>' : ''}<button class="btn" id="save">Lưu</button></div>`);
   const showImg = () => m.querySelector('#pimg').innerHTML = thumb(p);
   showImg();
+  const num = sel => parseInt(m.querySelector(sel).value.replace(/\D/g, ''), 10);
+  const calcProfit = () => {
+    const c = num('#pc'), x = num('#pp'), box = m.querySelector('#pl');
+    if (isNaN(x) || isNaN(c)) { box.textContent = 'Lợi nhuận: nhập giá nhập và giá xuất để xem'; box.className = 'profit'; return; }
+    const l = x - c;
+    box.textContent = `Lợi nhuận: ${fmt(l)} đ / sản phẩm` + (c ? ` (${(l / c * 100).toFixed(0)}% so với giá nhập)` : '');
+    box.className = 'profit' + (l < 0 ? ' neg' : '');
+  };
+  m.querySelector('#pc').oninput = calcProfit; m.querySelector('#pp').oninput = calcProfit; calcProfit();
   m.querySelector('#pick').onclick = () => m.querySelector('#file').click();
   m.querySelector('#file').onchange = async e => { const f = e.target.files[0]; if (f) { p.img = await resizeImg(f); showImg(); } };
   m.querySelector('#noimg').onclick = () => { p.img = ''; showImg(); };
   m.querySelector('#save').onclick = async () => {
     p.name = m.querySelector('#pn').value.trim();
-    p.price = parseInt(m.querySelector('#pp').value.replace(/\D/g, ''), 10);
-    if (!p.name || isNaN(p.price)) return alert('Nhập tên và giá sản phẩm');
+    p.price = num('#pp');
+    const c = num('#pc'); if (isNaN(c)) delete p.cost; else p.cost = c;
+    if (!p.name || isNaN(p.price)) return alert('Nhập tên và giá xuất sản phẩm');
     if (!old) p.order = Math.min(0, ...products.map(x => x.order)) - 1; // sản phẩm mới lên đầu
     await dbPut('products', p);
     await loadAll();
@@ -227,7 +241,7 @@ function vCart() {
 }
 
 async function createInvoice() {
-  const items = cartItems().map(i => ({ name: i.p.name, price: i.price, qty: i.qty }));
+  const items = cartItems().map(i => { const it = { name: i.p.name, price: i.price, qty: i.qty }; if (hasCost(i.p)) it.cost = i.p.cost; return it; });
   settings.counter++; await saveSettings();
   const inv = {
     id: uid(), code: 'HD' + String(settings.counter).padStart(4, '0'), date: Date.now(),
@@ -248,6 +262,52 @@ function vHistory() {
       <b>${fmt(v.total)} đ</b>
     </div>`).join('');
   $('#view').onclick = e => { const r = e.target.closest('.hi'); if (r) openInvoice(invoices.find(x => x.id === r.dataset.id)); };
+}
+
+
+/* --- Thống kê lợi nhuận --- */
+let statMonth = 'all';
+const monthKey = d => { const t = new Date(d); return `${t.getFullYear()}-${pad(t.getMonth() + 1)}`; };
+// lãi của 1 hóa đơn: chỉ tính các dòng có giá nhập (hóa đơn cũ tạo trước v7 chưa có giá nhập)
+function invStat(v) {
+  let profit = 0, qty = 0, unknown = 0;
+  v.items.forEach(it => {
+    qty += it.qty;
+    if (it.cost === undefined) unknown++; else profit += (it.price - it.cost) * it.qty;
+  });
+  return { profit, qty, unknown };
+}
+function vStats() {
+  $('#title').textContent = 'Thống kê lợi nhuận';
+  if (!invoices.length) { $('#view').innerHTML = '<p class="empty">Chưa có hóa đơn nào để thống kê.</p>'; return; }
+  const months = [...new Set(invoices.map(v => monthKey(v.date)))];
+  if (statMonth !== 'all' && !months.includes(statMonth)) statMonth = 'all';
+  const list = invoices.filter(v => statMonth === 'all' || monthKey(v.date) === statMonth);
+  let rev = 0, prof = 0, qty = 0, unk = 0;
+  list.forEach(v => { const s = invStat(v); rev += v.total; prof += s.profit; qty += s.qty; unk += s.unknown; });
+  $('#view').innerHTML = `
+    <select id="sm" class="sel"><option value="all">Tất cả thời gian</option>${months.map(k => `<option value="${k}"${k === statMonth ? ' selected' : ''}>Tháng ${k.slice(5)}/${k.slice(0, 4)}</option>`).join('')}</select>
+    <div class="sumbox">
+      <div><small>Số đơn</small><b>${list.length}</b></div>
+      <div><small>Số sản phẩm</small><b>${fmt(qty)}</b></div>
+      <div><small>Doanh thu</small><b>${fmt(rev)} đ</b></div>
+      <div><small>Lợi nhuận</small><b class="${prof < 0 ? 'neg' : 'pos'}">${fmt(prof)} đ</b></div>
+    </div>
+    ${unk ? `<p class="hint">⚠️ ${unk} dòng sản phẩm thuộc hóa đơn cũ chưa có giá nhập nên không tính vào lợi nhuận.</p>` : ''}
+    <div id="sl"></div>`;
+  $('#sm').onchange = e => { statMonth = e.target.value; vStats(); };
+  $('#sl').innerHTML = list.map(v => {
+    const s = invStat(v);
+    return `<div class="st" data-id="${v.id}">
+      <div class="sth"><div class="nm">${v.code}${v.customer ? ' · ' + esc(v.customer) : ''}<small>${fdate(v.date)} · ${s.qty} sản phẩm · ${v.items.length} mặt hàng</small></div>
+        <div class="sr"><b class="${s.profit < 0 ? 'neg' : 'pos'}">${s.unknown === v.items.length ? '—' : '+' + fmt(s.profit) + ' đ'}</b><small>Doanh thu ${fmt(v.total)} đ</small></div></div>
+      <div class="std" hidden>${v.items.map(it => {
+        const known = it.cost !== undefined, l = known ? (it.price - it.cost) : 0;
+        return `<div class="sd"><div class="n">${esc(it.name)}<small>Nhập ${known ? fmt(it.cost) : '?'} · Xuất ${fmt(it.price)} · SL ${it.qty}</small></div>
+          <div class="sr">${known ? `<b class="${l < 0 ? 'neg' : 'pos'}">${fmt(l * it.qty)} đ</b><small>${fmt(l)} đ/sp</small>` : '<small>chưa có giá nhập</small>'}</div></div>`;
+      }).join('')}</div></div>`;
+  }).join('') || '<p class="empty">Không có hóa đơn trong tháng này.</p>';
+  $('#sl').onclick = e => { const h = e.target.closest('.sth'); if (h) h.nextElementSibling.hidden = !h.nextElementSibling.hidden; };
 }
 
 /* ---------- 4. Hóa đơn: giao diện, PDF, Excel ---------- */
@@ -401,8 +461,13 @@ function vSettings() {
     <button class="btn full" id="bk">💾 Sao lưu (file JSON)</button>
     <button class="btn alt full" id="rs">📂 Khôi phục từ file</button>
     <input type="file" id="rsFile" accept=".json,application/json" hidden>
-    <p class="hint">iPhone: mở bằng Safari → nút Chia sẻ → "Thêm vào MH chính" để dùng như ứng dụng, chạy được khi không có mạng.</p>
-    <p class="hint">Phiên bản app: ${APP_VERSION}</p>`;
+    <p class="hint">iPhone: mở link bằng <b>Safari</b> → nút Chia sẻ → "Thêm vào MH chính" (bật "Mở dưới dạng Ứng dụng web"). Không dùng app Phím tắt vì chỉ tạo lối tắt mở trình duyệt.</p>
+    <hr style="border:0;border-top:1px solid var(--bd);margin:22px 0">
+    <b>Thông tin phiên bản</b>
+    <p class="hint">Phiên bản đang chạy: <b>${APP_VERSION}</b> · cập nhật ${APP_BUILD}<br>Chế độ: ${isStandalone ? '✅ Đang chạy như ứng dụng' : '🌐 Đang mở trong trình duyệt'}</p>
+    <button class="btn alt full" id="chk">🔄 Kiểm tra cập nhật</button>
+    <p class="hint" id="chkR"></p>`;
+  $('#chk').onclick = checkUpdate;
   $('#qrPick').onclick = () => $('#qrFile').click();
   $('#qrFile').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
@@ -417,6 +482,20 @@ function vSettings() {
   $('#bk').onclick = backup;
   $('#rs').onclick = () => $('#rsFile').click();
   $('#rsFile').onchange = e => e.target.files[0] && restore(e.target.files[0]);
+}
+
+const isStandalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+// so sánh phiên bản đang chạy với bản mới nhất trên GitHub
+async function checkUpdate() {
+  const r = $('#chkR'); r.textContent = 'Đang kiểm tra…';
+  try {
+    const t = await (await fetch('app.js?_=' + Date.now(), { cache: 'no-store' })).text();
+    const v = (t.match(/APP_VERSION\s*=\s*'([^']+)'/) || [])[1];
+    if (!v) throw new Error('không đọc được');
+    if (v === APP_VERSION) r.textContent = `✅ Đã là bản mới nhất (${v}).`;
+    else { r.innerHTML = `⬆️ GitHub có bản <b>${v}</b>, máy đang chạy ${APP_VERSION}. <a id="rl" style="color:var(--c);font-weight:700">Bấm để cập nhật</a>`;
+      $('#rl').onclick = async () => { (await navigator.serviceWorker?.getRegistration())?.update(); (await caches.keys()).forEach(k => caches.delete(k)); location.reload(); }; }
+  } catch (e) { r.textContent = 'Không kiểm tra được (cần có mạng).'; }
 }
 
 function backup() {

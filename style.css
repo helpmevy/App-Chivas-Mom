@@ -79,3 +79,23 @@ label.f{display:block;font-size:13px;color:var(--mu);margin:12px 0 4px}
 .bk{text-align:left;line-height:1.5}.bk small{display:block;color:#666}.bk b{display:block;font-size:13px}.bk span{display:block}
 .thx{text-align:center;font-style:italic;margin-top:8px}
 .if{position:absolute;left:26px;right:26px;bottom:14px;display:flex;justify-content:space-between;font-size:9px;color:#888;border-top:1px solid #ddd;padding-top:5px}
+
+/* ---- v7: giá nhập / lãi / thống kê ---- */
+.mu{color:var(--mu);font-size:13px}
+.profit{margin:12px 0 4px;padding:10px 12px;border-radius:10px;background:#eaf6f7;color:var(--cd);font-weight:700;font-size:14px}
+.profit.neg{background:#fdecec;color:var(--red)}
+.sel{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;background:#fff;margin-bottom:10px}
+.sumbox{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.sumbox>div{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px 12px}
+.sumbox small{display:block;color:var(--mu);font-size:12px}
+.sumbox b{font-size:18px}
+.pos{color:#1d8a4e}.neg{color:var(--red)}
+.st{background:#fff;border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.sth{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px;cursor:pointer}
+.sr{text-align:right;white-space:nowrap}
+.sr small{display:block;color:var(--mu);font-size:12px;font-weight:400}
+.std{border-top:1px dashed var(--bd);background:#f8fcfc;padding:4px 10px}
+.sd{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd)}
+.sd:last-child{border:0}
+.sd .n{flex:1;min-width:0;font-size:14px;overflow-wrap:anywhere}
+.sd .n small{display:block;color:var(--mu);font-size:12px}
