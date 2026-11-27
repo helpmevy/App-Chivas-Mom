@@ -1,15 +1,23 @@
 /* Service worker: lưu sẵn file để app chạy offline.
-   Khi sửa code, đổi số phiên bản CACHE (v1 -> v2) để điện thoại cập nhật. */
-const CACHE = 'mechivas-v4';
+   Có mạng: luôn lấy bản MỚI NHẤT từ GitHub (nên cập nhật code là máy tự nhận).
+   Mất mạng: dùng bản đã lưu. Khi sửa code, đổi số phiên bản CACHE (v5 -> v6). */
+const CACHE = 'mechivas-v5';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'manifest.json',
   'lib/html2canvas.min.js', 'lib/jspdf.umd.min.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
-self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(FILES.map(f => c.add(new Request(f, { cache: 'reload' }))))));
+  self.skipWaiting();
+});
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
   self.clients.claim();
 });
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request)));
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  e.respondWith(
+    fetch(e.request.url, { cache: 'no-cache' })
+      .then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); } return res; })
+      .catch(() => caches.match(e.request, { ignoreSearch: true }))
+  );
 });

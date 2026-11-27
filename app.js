@@ -1,4 +1,5 @@
 'use strict';
+const APP_VERSION = 'v5'; // hiện ở Cài đặt để biết máy đang chạy bản nào
 /* =====================================================
    Mẹ Chivas - Quản lý sản phẩm & hóa đơn (PWA)
    Cấu trúc file: 1) Tiện ích  2) Cơ sở dữ liệu  3) Màn hình
@@ -343,7 +344,8 @@ function vSettings() {
     <button class="btn full" id="bk">💾 Sao lưu (file JSON)</button>
     <button class="btn alt full" id="rs">📂 Khôi phục từ file</button>
     <input type="file" id="rsFile" accept=".json,application/json" hidden>
-    <p class="hint">iPhone: mở bằng Safari → nút Chia sẻ → "Thêm vào MH chính" để dùng như ứng dụng, chạy được khi không có mạng.</p>`;
+    <p class="hint">iPhone: mở bằng Safari → nút Chia sẻ → "Thêm vào MH chính" để dùng như ứng dụng, chạy được khi không có mạng.</p>
+    <p class="hint">Phiên bản app: ${APP_VERSION}</p>`;
   $('#qrPick').onclick = () => $('#qrFile').click();
   $('#qrFile').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
