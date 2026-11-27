@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = 'v5'; // hiện ở Cài đặt để biết máy đang chạy bản nào
+const APP_VERSION = 'v6'; // hiện ở Cài đặt để biết máy đang chạy bản nào
 /* =====================================================
    Mẹ Chivas - Quản lý sản phẩm & hóa đơn (PWA)
    Cấu trúc file: 1) Tiện ích  2) Cơ sở dữ liệu  3) Màn hình
@@ -80,7 +80,11 @@ const putMany = (s, arr) => new Promise((res, rej) => {
 const getMeta = async k => (await req(tx('meta').get(k)))?.value;
 const setMeta = (k, v) => dbPut('meta', { key: k, value: v });
 
-const DEFAULTS = { shopName: 'Mẹ Chivas shop', phone: '84971365980', qr: '', counter: 0 };
+const DEFAULTS = {
+  shopName: 'Mẹ Chivas shop', phone: '84971365980', counter: 0,
+  qr: '', // để trống = dùng ảnh qr.png đi kèm app; chọn ảnh khác trong Cài đặt sẽ lưu ở đây
+  bankHolder: 'VU THI HIEN', bankAcc: '102869208889', bankName: 'VietinBank - CN VINH PHUC - HOI SO'
+};
 let settings = { ...DEFAULTS }, products = [], invoices = [];
 const saveSettings = () => setMeta('settings', settings);
 async function loadAll() {
@@ -271,7 +275,7 @@ function pagesHTML(inv) {
     const foot = pi < n - 1 ? '' : `
       <div class="it"><div class="l"><span>Tổng tiền ${qty} sản phẩm</span><span>${fmt(inv.total)} đ</span></div>
       <div class="tt"><span>Tổng tiền</span><span>${fmt(inv.total)} đ</span></div>
-      <div class="qr">${settings.qr ? `<img src="${settings.qr}" alt="">` : '<div class="qrph">QR</div>'}<div>Mã QR Thanh toán</div></div>
+      <div class="qr"><img src="${settings.qr || 'qr.png'}" alt=""><div class="bk"><small>Mã QR Thanh toán</small><b>${esc(settings.bankHolder)}</b><span>Tài khoản: ${esc(settings.bankAcc)}</span><span>${esc(settings.bankName)}</span></div></div>
       <div class="thx">Xin cảm ơn, hẹn gặp lại</div></div>`;
     return `<div class="ipage">${head}<div class="icols"><span>Sản phẩm</span><span>SL</span><span>T.TIỀN</span></div>${rows}${foot}
       <div class="if"><span>${esc(inv.shop)} — Hoá đơn thanh toán</span><span>Page ${pi + 1} of ${n}</span></div></div>`;
@@ -290,7 +294,7 @@ function openInvoice(inv) {
     try { await deliver(await makePDF(inv), inv.code + '.pdf', 'application/pdf'); } catch (err) { alert('Lỗi tạo PDF: ' + err.message); }
     e.target.disabled = false;
   };
-  m.querySelector('#bXls').onclick = () => exportCSV(inv);
+  m.querySelector('#bXls').onclick = () => exportXLSX(inv);
   m.querySelector('#bDel').onclick = async () => {
     if (!confirm(`Xóa hóa đơn ${inv.code}?`)) return;
     await dbDel('invoices', inv.id); invoices = invoices.filter(x => x.id !== inv.id);
@@ -316,15 +320,65 @@ async function makePDF(inv) {
   } finally { box.remove(); }
 }
 
-// Excel: file CSV (mở bằng Excel, Numbers, Google Sheets), có BOM để không lỗi tiếng Việt
-function exportCSV(inv) {
-  const rows = [
-    ['STT', 'Sản phẩm', 'Đơn giá', 'SL', 'Thành tiền'],
-    ...inv.items.map((it, i) => [i + 1, it.name, it.price, it.qty, it.price * it.qty]),
-    ['', 'TỔNG', '', inv.items.reduce((s, i) => s + i.qty, 0), inv.total]
-  ];
-  const text = '\ufeff' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
-  deliver(new Blob([text], { type: 'text/csv;charset=utf-8' }), inv.code + '.csv', 'text/csv');
+// Excel: file .xlsx đã định dạng sẵn (tiêu đề, cột, viền, số tiền, tổng, thông tin chuyển khoản + QR)
+const loadScript = src => window.ExcelJS ? Promise.resolve() : new Promise((res, rej) => {
+  const s = document.createElement('script'); s.src = src; s.onload = res;
+  s.onerror = () => rej(new Error('Không tải được thư viện Excel (cần mạng lần đầu)')); document.head.appendChild(s);
+});
+const toDataURL = async src => {
+  if (src.startsWith('data:')) return src;
+  const blob = await (await fetch(src)).blob();
+  return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+};
+async function exportXLSX(inv) {
+  toast('Đang tạo Excel…');
+  try {
+    await loadScript('lib/exceljs.min.js');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Hóa đơn', { pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    ws.columns = [{ width: 6 }, { width: 46 }, { width: 14 }, { width: 8 }, { width: 16 }];
+    const thin = { style: 'thin', color: { argb: 'FF9AA5A8' } }, box = { top: thin, left: thin, bottom: thin, right: thin };
+    const TEAL = 'FF1B7F8C', money = '#,##0';
+    const line = (text, o = {}) => { // một dòng gộp 5 cột, căn giữa
+      const r = ws.addRow([text]); ws.mergeCells(r.number, 1, r.number, 5);
+      r.getCell(1).font = { name: 'Arial', size: o.size || 11, bold: !!o.bold, italic: !!o.italic, color: { argb: o.color || 'FF000000' } };
+      r.getCell(1).alignment = { horizontal: o.left ? 'left' : 'center', vertical: 'middle' };
+      if (o.h) r.height = o.h; return r;
+    };
+    line(inv.shop, { size: 18, bold: true, color: TEAL, h: 28 });
+    line('SĐT: ' + inv.phone);
+    line('HOÁ ĐƠN THANH TOÁN', { size: 14, bold: true, h: 26 });
+    line('Ngày: ' + fdate(inv.date), { left: true });
+    if (inv.customer) line('Khách: ' + inv.customer, { left: true });
+    ws.addRow([]);
+    const hr = ws.addRow(['STT', 'Sản phẩm', 'Đơn giá', 'SL', 'Thành tiền']); hr.height = 22;
+    hr.eachCell(c => { c.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TEAL } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = box; });
+    const first = hr.number + 1;
+    inv.items.forEach((it, i) => {
+      const r = ws.addRow([i + 1, it.name, it.price, it.qty, { formula: `C${first + i}*D${first + i}`, result: it.price * it.qty }]);
+      r.eachCell(c => { c.font = { name: 'Arial', size: 11 }; c.border = box; c.alignment = { vertical: 'middle', wrapText: true }; });
+      r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }; r.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(3).numFmt = money; r.getCell(5).numFmt = money;
+    });
+    const last = first + inv.items.length - 1, qty = inv.items.reduce((s, i) => s + i.qty, 0);
+    const tr = ws.addRow(['TỔNG CỘNG', '', '', { formula: `SUM(D${first}:D${last})`, result: qty }, { formula: `SUM(E${first}:E${last})`, result: inv.total }]);
+    ws.mergeCells(tr.number, 1, tr.number, 3); tr.height = 24;
+    tr.eachCell({ includeEmpty: true }, c => { c.font = { name: 'Arial', size: 12, bold: true }; c.border = box; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3D6' } }; c.alignment = { vertical: 'middle' }; });
+    tr.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' }; tr.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' }; tr.getCell(5).numFmt = money;
+    ws.addRow([]);
+    line('Thông tin chuyển khoản', { bold: true, left: true });
+    line('Chủ tài khoản: ' + settings.bankHolder, { left: true });
+    line('Số tài khoản: ' + settings.bankAcc, { left: true });
+    line('Ngân hàng: ' + settings.bankName, { left: true });
+    const qrRow = ws.rowCount; // mã QR đặt ngay dưới thông tin chuyển khoản
+    const dataUrl = await toDataURL(settings.qr || 'qr.png');
+    const id = wb.addImage({ base64: dataUrl, extension: dataUrl.startsWith('data:image/png') ? 'png' : 'jpeg' });
+    ws.addImage(id, { tl: { col: 1, row: qrRow + .3 }, ext: { width: 150, height: 150 } });
+    for (let i = 0; i < 9; i++) ws.addRow([]);
+    line('Xin cảm ơn, hẹn gặp lại', { italic: true });
+    const buf = await wb.xlsx.writeBuffer();
+    deliver(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), inv.code + '.xlsx');
+  } catch (err) { alert('Lỗi tạo Excel: ' + err.message); }
 }
 
 /* ---------- 5. Cài đặt, sao lưu, khôi phục ---------- */
@@ -333,9 +387,12 @@ function vSettings() {
   $('#view').innerHTML = `
     <label class="f">Tên cửa hàng (hiện trên hóa đơn)</label><input id="sn" value="${esc(settings.shopName)}">
     <label class="f">Số điện thoại</label><input id="sp" value="${esc(settings.phone)}">
+    <label class="f">Chủ tài khoản ngân hàng</label><input id="bh" value="${esc(settings.bankHolder)}">
+    <label class="f">Số tài khoản</label><input id="ba" inputmode="numeric" value="${esc(settings.bankAcc)}">
+    <label class="f">Ngân hàng / chi nhánh</label><input id="bn" value="${esc(settings.bankName)}">
     <label class="f">Ảnh mã QR thanh toán</label>
-    ${settings.qr ? `<img class="qrprev" src="${settings.qr}" alt="">` : '<p class="hint">Chưa có ảnh QR.</p>'}
-    <div class="bar"><button class="btn alt" id="qrPick">Chọn ảnh QR</button>${settings.qr ? '<button class="btn danger" id="qrDel">Xóa QR</button>' : ''}</div>
+    <img class="qrprev" src="${settings.qr || 'qr.png'}" alt="">
+    <div class="bar"><button class="btn alt" id="qrPick">Chọn ảnh QR khác</button>${settings.qr ? '<button class="btn danger" id="qrDel">Dùng QR mặc định</button>' : ''}</div>
     <input type="file" id="qrFile" accept="image/*" hidden>
     <button class="btn full" id="ss">Lưu cài đặt</button>
     <hr style="border:0;border-top:1px solid var(--bd);margin:22px 0">
@@ -354,6 +411,7 @@ function vSettings() {
   if (settings.qr) $('#qrDel').onclick = async () => { settings.qr = ''; await saveSettings(); vSettings(); };
   $('#ss').onclick = async () => {
     settings.shopName = $('#sn').value.trim() || DEFAULTS.shopName; settings.phone = $('#sp').value.trim();
+    settings.bankHolder = $('#bh').value.trim(); settings.bankAcc = $('#ba').value.trim(); settings.bankName = $('#bn').value.trim();
     await saveSettings(); toast('Đã lưu cài đặt');
   };
   $('#bk').onclick = backup;

@@ -1,9 +1,9 @@
 /* Service worker: lưu sẵn file để app chạy offline.
    Có mạng: luôn lấy bản MỚI NHẤT từ GitHub (nên cập nhật code là máy tự nhận).
-   Mất mạng: dùng bản đã lưu. Khi sửa code, đổi số phiên bản CACHE (v5 -> v6). */
-const CACHE = 'mechivas-v5';
-const FILES = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'manifest.json',
-  'lib/html2canvas.min.js', 'lib/jspdf.umd.min.js',
+   Mất mạng: dùng bản đã lưu. Khi sửa code, đổi số phiên bản CACHE (v6 -> v7). */
+const CACHE = 'mechivas-v6';
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'manifest.json', 'qr.png',
+  'lib/html2canvas.min.js', 'lib/jspdf.umd.min.js', 'lib/exceljs.min.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(FILES.map(f => c.add(new Request(f, { cache: 'reload' }))))));
