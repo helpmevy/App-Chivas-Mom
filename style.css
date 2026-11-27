@@ -59,16 +59,18 @@ label.f{display:block;font-size:13px;color:var(--mu);margin:12px 0 4px}
 
 /* ===== Hóa đơn (bám mẫu: cỡ A5, chia trang, chân trang) ===== */
 .ipage{width:420px;height:594px;padding:26px 26px 44px;position:relative;background:#fff;color:#111;font:13px/1.35 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden}
-.ih{text-align:center;margin-bottom:10px}
+.ih{height:135px;overflow:hidden;text-align:center}
 .ih h2{margin:0 0 2px;font-size:20px}
 .ih h3{margin:12px 0 8px;font-size:16px;letter-spacing:.5px}
 .im{display:flex;justify-content:space-between;font-size:12px;text-align:left}
-.icols{display:flex;font-weight:700;border-bottom:1.5px solid #111;padding:5px 0;font-size:12px}
-.icols span:first-child{flex:1}.icols span:nth-child(2){width:46px;text-align:center}.icols span:last-child{width:90px;text-align:right}
-.ir{padding:5px 0;border-bottom:1px dashed #ccc}
+/* 3 cột cố định: Sản phẩm | SL | T.TIỀN - tiêu đề và từng dòng dùng chung độ rộng nên luôn thẳng hàng */
+.icols{display:grid;grid-template-columns:1fr 46px 90px;height:30px;box-sizing:border-box;font-weight:700;border-bottom:1.5px solid #111;padding:5px 0;font-size:12px}
+.icols span:nth-child(2){text-align:center}.icols span:nth-child(3){text-align:right}
+.ir{box-sizing:border-box;padding:5px 0;border-bottom:1px dashed #ccc;overflow:hidden}
+.ir.h1{height:46px}.ir.h2{height:64px}
 .ir .n{font-weight:600}
-.ir .p{display:flex;justify-content:space-between;font-size:12px;color:#444}
-.ir .p span:nth-child(2){margin-left:auto;margin-right:46px}
+.ir .p{display:grid;grid-template-columns:1fr 46px 90px;font-size:12px;color:#444}
+.ir .p span:nth-child(2){text-align:center}.ir .p span:nth-child(3){text-align:right}
 .it{margin-top:10px}
 .it .l,.it .tt{display:flex;justify-content:space-between}
 .it .tt{font-size:16px;font-weight:700;border-top:1.5px solid #111;margin-top:6px;padding-top:6px}

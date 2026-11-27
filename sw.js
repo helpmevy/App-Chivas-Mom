@@ -1,6 +1,6 @@
 /* Service worker: lưu sẵn file để app chạy offline.
    Khi sửa code, đổi số phiên bản CACHE (v1 -> v2) để điện thoại cập nhật. */
-const CACHE = 'mechivas-v2';
+const CACHE = 'mechivas-v3';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'manifest.json',
   'lib/html2canvas.min.js', 'lib/jspdf.umd.min.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];

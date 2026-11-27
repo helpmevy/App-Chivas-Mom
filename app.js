@@ -250,21 +250,25 @@ function vHistory() {
 
 /* ---------- 4. Hóa đơn: giao diện, PDF, Excel ---------- */
 // Chia hóa đơn thành các trang A5 giống mẫu: trang 1 có tiêu đề, trang cuối có tổng tiền + QR
+// Mỗi dòng sản phẩm có chiều cao CỐ ĐỊNH (tên 1 dòng = 46px, tên 2 dòng = 64px) nên chia trang chính xác, không đè lên đầu/chân trang
 function pagesHTML(inv) {
-  const FIRST = 9, NEXT = 12, TOTAL_ROOM = 6;
-  const chunks = [inv.items.slice(0, FIRST)];
-  for (let i = FIRST; i < inv.items.length; i += NEXT) chunks.push(inv.items.slice(i, i + NEXT));
-  const cap = chunks.length === 1 ? FIRST : NEXT;
-  if (chunks[chunks.length - 1].length > cap - TOTAL_ROOM) chunks.push([]);
-  const n = chunks.length, qty = inv.items.reduce((s, i) => s + i.qty, 0);
-  let idx = 0;
-  return chunks.map((c, pi) => {
+  const BUDGET = 494, HEAD_H = 135, TOTAL_H = 240; // chiều cao vùng nội dung / phần tiêu đề / phần tổng tiền + QR
+  const rowH = (it, i) => (`${i + 1}. ${it.name}`.length > 44 ? 64 : 46);
+  const pages = [[]]; let used = HEAD_H;
+  inv.items.forEach((it, i) => {
+    const h = rowH(it, i);
+    if (used + h > BUDGET) { pages.push([]); used = 0; }
+    pages[pages.length - 1].push({ it, i, h }); used += h;
+  });
+  if (used + TOTAL_H > BUDGET) pages.push([]); // không đủ chỗ cho tổng tiền → sang trang mới
+  const n = pages.length, qty = inv.items.reduce((s, i) => s + i.qty, 0);
+  return pages.map((c, pi) => {
     const head = pi ? '' : `
       <div class="ih"><h2>${esc(inv.shop)}</h2><div>SĐT: ${esc(inv.phone)}</div><h3>HOÁ ĐƠN THANH TOÁN</h3>
       <div class="im"><span>Hoá đơn: ${inv.code}</span><span>Ngày: ${fdate(inv.date)}</span></div>
       ${inv.customer ? `<div class="im"><span>Khách: ${esc(inv.customer)}</span></div>` : ''}</div>`;
-    const rows = c.map(it => `
-      <div class="ir"><div class="n">${++idx}. ${esc(it.name)}</div>
+    const rows = c.map(({ it, i, h }) => `
+      <div class="ir h${h === 64 ? 2 : 1}"><div class="n">${i + 1}. ${esc(it.name)}</div>
       <div class="p"><span>${fmt(it.price)}</span><span>x${it.qty}</span><span>${fmt(it.price * it.qty)} đ</span></div></div>`).join('');
     const foot = pi < n - 1 ? '' : `
       <div class="it"><div class="l"><span>Tổng tiền ${qty} sản phẩm</span><span>${fmt(inv.total)} đ</span></div>
