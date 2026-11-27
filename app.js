@@ -45,16 +45,13 @@ const resizeImg = (file, max = 360, type = 'image/jpeg') => new Promise((res, re
   r.onerror = rej; r.readAsDataURL(file);
 });
 
-// Chia sẻ (iPhone: bảng Chia sẻ → Lưu vào Tệp) hoặc tải xuống
-async function deliver(blob, name, type) {
-  const f = new File([blob], name, { type });
-  if (navigator.canShare?.({ files: [f] })) {
-    try { await navigator.share({ files: [f] }); return; } catch (e) { if (e.name === 'AbortError') return; }
-  }
+// Tải file trực tiếp về máy (điện thoại hoặc máy tính)
+function deliver(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  toast('Đã tải: ' + name);
 }
 
 /* ---------- 2. Cơ sở dữ liệu (IndexedDB) ---------- */
@@ -265,7 +262,7 @@ function pagesHTML(inv) {
   return pages.map((c, pi) => {
     const head = pi ? '' : `
       <div class="ih"><h2>${esc(inv.shop)}</h2><div>SĐT: ${esc(inv.phone)}</div><h3>HOÁ ĐƠN THANH TOÁN</h3>
-      <div class="im"><span>Hoá đơn: ${inv.code}</span><span>Ngày: ${fdate(inv.date)}</span></div>
+      <div class="im"><span>Ngày: ${fdate(inv.date)}</span></div>
       ${inv.customer ? `<div class="im"><span>Khách: ${esc(inv.customer)}</span></div>` : ''}</div>`;
     const rows = c.map(({ it, i, h }) => `
       <div class="ir h${h === 64 ? 2 : 1}"><div class="n">${i + 1}. ${esc(it.name)}</div>
